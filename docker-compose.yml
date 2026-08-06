@@ -1,0 +1,14 @@
+# For now this only defines chromadb -- 
+# Ollama is intentionally NOT a service here: it
+# runs natively on this Mac
+
+services:
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"   # host:container -- 8001 avoids colliding with the backend's port 8000, added later
+    volumes:
+      - chroma_data:/chroma/chroma   # persists embedded documents across container restarts
+
+volumes:
+  chroma_data:

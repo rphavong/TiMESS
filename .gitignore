@@ -1,0 +1,12 @@
+.env
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+chroma_data/
+.terraform/
+*.tfstate
+*.tfstate.backup
+key.pem
+.DS_Store
