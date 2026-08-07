@@ -1,0 +1,18 @@
+Xenium is a high-plex, single-cell resolution in situ spatial
+biology platform. Xenium v1 supports gene panels up to 480 genes
+per run and is optimized for FFPE tissue sections. Xenium Prime
+extends this to panels of up to 5,000
+genes while retaining single-cell spatial resolution, making it
+suited to discovery-stage studies where the target gene set isn't
+narrowed down yet.
+
+Visium HD provides single-cell scale spatial resolution across an
+entire tissue section using a continuous grid of 2-micron capture
+areas, rather than targeted probes -- useful for whole-transcriptome
+profiling without pre-selecting a gene panel. Visium HD 3' extends
+this workflow to 3' gene expression chemistry.
+
+Flex and Universal are single-cell (dissociated, non-spatial)
+platforms: Flex uses a fixed, probe-based panel well suited to FFPE
+and challenging samples, while Universal (3') captures the whole
+transcriptome from fresh or frozen dissociated cells.
