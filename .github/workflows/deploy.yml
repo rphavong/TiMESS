@@ -1,0 +1,50 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        run: terraform init
+        working-directory: infra
+
+      - name: Terraform apply
+        run: terraform apply -auto-approve -var="key_pair_name=${{ secrets.EC2_KEY_PAIR_NAME }}"
+        working-directory: infra
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_VAR_mem0_api_key: ${{ secrets.MEM0_API_KEY }}
+
+      - name: Get EC2 public IP
+        id: get_ip
+        run: echo "ip=$(terraform output -raw ec2_public_ip)" >> "$GITHUB_OUTPUT"
+        working-directory: infra
+
+      - name: Deploy containers via SSH
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          HOST: ${{ steps.get_ip.outputs.ip }}
+        run: |
+          echo "$SSH_KEY" > key.pem
+          chmod 600 key.pem
+          scp -i key.pem -o StrictHostKeyChecking=no docker-compose.yml ec2-user@$HOST:~/docker-compose.yml
+          ssh -i key.pem -o StrictHostKeyChecking=no ec2-user@$HOST \
+            "docker compose pull && docker compose up -d"
+
+      - name: Smoke test (curl)
+        run: |
+          sleep 20
+          curl -f "http://${{ steps.get_ip.outputs.ip }}:8000/health"
+          curl -f -X POST "http://${{ steps.get_ip.outputs.ip }}:8000/api/chat" \
+            -H "Content-Type: application/json" \
+            -d '{"user_id":"smoke-test","query":"What is Xenium used for?"}'
+          echo ""
+          echo "App is live at: http://${{ steps.get_ip.outputs.ip }}:8501"
