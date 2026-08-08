@@ -1,14 +1,36 @@
-# For now this only defines chromadb -- 
-# Ollama is intentionally NOT a service here: it
-# runs natively on this Mac
-
 services:
   chromadb:
-    image: chromadb/chroma:latest
+    image: chromadb/chroma:0.5.20
     ports:
-      - "8001:8000"   # host:container -- 8001 avoids colliding with the backend's port 8000, added later
+      - "8001:8000"
     volumes:
-      - chroma_data:/chroma/chroma   # persists embedded documents across container restarts
+      - chroma_data:/chroma/chroma
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434   # overridden for Mac below
+      - OLLAMA_MODEL=llama3.1:8b
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - MEM0_API_KEY=${MEM0_API_KEY}
+      - DYNAMO_TABLE=${DYNAMO_TABLE:-timess-sessions}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    depends_on:
+      - chromadb
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
 
 volumes:
   chroma_data:

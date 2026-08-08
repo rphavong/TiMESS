@@ -1,0 +1,13 @@
+# Auto-merged by `docker compose up` -- exists ONLY for local
+# development on this Mac. Docker Desktop on Apple Silicon can't
+# pass the M-series GPU through to a container, so Ollama runs
+# natively instead of as a service here. This file
+# repoints the backend at that native Ollama via Docker's special
+# "host.docker.internal" DNS name, which resolves to your actual Mac
+# from inside any container.
+services:
+  backend:
+    environment:
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    depends_on:
+      - chromadb
