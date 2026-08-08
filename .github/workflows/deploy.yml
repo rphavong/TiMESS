@@ -32,10 +32,28 @@ jobs:
         env:
           SSH_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           HOST: ${{ steps.get_ip.outputs.ip }}
+          MEM0_API_KEY: ${{ secrets.MEM0_API_KEY }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "$SSH_KEY" > key.pem
           chmod 600 key.pem
-          scp -i key.pem -o StrictHostKeyChecking=no docker-compose.yml ec2-user@$HOST:~/docker-compose.yml
+
+          # Copy the PRODUCTION compose file (pulls pre-built images)
+          # -- not docker-compose.yml, which builds from local source
+          # and is meant for your Mac only.
+          scp -i key.pem -o StrictHostKeyChecking=no docker-compose.prod.yml ec2-user@$HOST:~/docker-compose.yml
+
+          # Write .env on the server via stdin (not as a command-line
+          # argument) so the secret value never shows up in the
+          # remote shell's process list.
+          ssh -i key.pem -o StrictHostKeyChecking=no ec2-user@$HOST "cat > .env" <<< "MEM0_API_KEY=$MEM0_API_KEY"
+
+          # Log in to GHCR so `docker-compose pull` can fetch your
+          # images -- required unless you've made the GHCR packages
+          # public (see the lab notes).
+          ssh -i key.pem -o StrictHostKeyChecking=no ec2-user@$HOST \
+            "echo '$GHCR_TOKEN' | docker login ghcr.io -u rphavong --password-stdin"
+
           ssh -i key.pem -o StrictHostKeyChecking=no ec2-user@$HOST \
             "docker-compose pull && docker-compose up -d"
 

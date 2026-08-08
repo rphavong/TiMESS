@@ -1,0 +1,48 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "ollama serve &
+       sleep 5 &&
+       ollama pull llama3.1:8b &&
+       ollama pull nomic-embed-text &&
+       wait"
+
+  chromadb:
+    image: chromadb/chroma:0.5.20
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+
+  backend:
+    image: ghcr.io/rphavong/timess/backend:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3.1:8b
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - MEM0_API_KEY=${MEM0_API_KEY}
+      - DYNAMO_TABLE=timess-sessions
+      - AWS_REGION=us-east-1
+    depends_on:
+      - chromadb
+      - ollama
+
+  frontend:
+    image: ghcr.io/rphavong/timess/frontend:latest
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
+
+volumes:
+  ollama_data:
+  chroma_data:
