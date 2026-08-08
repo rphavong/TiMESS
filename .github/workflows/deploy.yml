@@ -37,7 +37,7 @@ jobs:
           chmod 600 key.pem
           scp -i key.pem -o StrictHostKeyChecking=no docker-compose.yml ec2-user@$HOST:~/docker-compose.yml
           ssh -i key.pem -o StrictHostKeyChecking=no ec2-user@$HOST \
-            "docker compose pull && docker compose up -d"
+            "docker-compose pull && docker-compose up -d"
 
       - name: Smoke test (curl)
         run: |
