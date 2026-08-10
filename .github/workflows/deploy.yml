@@ -71,10 +71,31 @@ jobs:
 
       - name: Smoke test (curl)
         run: |
-          sleep 20
-          curl -f "http://${{ steps.get_ip.outputs.ip }}:8000/health"
-          curl -f -X POST "http://${{ steps.get_ip.outputs.ip }}:8000/api/chat" \
-            -H "Content-Type: application/json" \
-            -d '{"user_id":"smoke-test","query":"What is Xenium used for?"}'
-          echo ""
-          echo "App is live at: http://${{ steps.get_ip.outputs.ip }}:8501"
+          HOST="${{ steps.get_ip.outputs.ip }}"
+
+          echo "Waiting for backend health check..."
+          for i in $(seq 1 20); do
+            if curl -sf "http://$HOST:8000/health" > /dev/null; then
+              echo "Backend is up."
+              break
+            fi
+            echo "Not ready yet, retrying in 15s... ($i/20)"
+            sleep 15
+          done
+
+          echo "Waiting for a real chat response (may take several minutes on first deploy while Ollama downloads its model)..."
+          for i in $(seq 1 30); do
+            if curl -sf -X POST "http://$HOST:8000/api/chat" \
+              -H "Content-Type: application/json" \
+              -d '{"user_id":"smoke-test","query":"What is Xenium used for?"}'; then
+              echo ""
+              echo "Chat endpoint responded successfully."
+              echo "App is live at: http://$HOST:8501"
+              exit 0
+            fi
+            echo "Not ready yet, retrying in 20s... ($i/30)"
+            sleep 20
+          done
+
+          echo "Chat endpoint never became ready in time."
+          exit 1
