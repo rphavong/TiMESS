@@ -1,12 +1,12 @@
 # LangChain Expression Language - Pull memory into the chain  
 import os
-from operator import itemgetter
 
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama import ChatOllama
 
 from src.memory import get_user_memories, save_turn_to_memory
+from src.platforms import detect_platforms
 from src.retriever import get_retriever
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
@@ -33,44 +33,48 @@ prompt = ChatPromptTemplate.from_messages(
 )
 
 llm = ChatOllama(model=OLLAMA_MODEL, base_url=OLLAMA_BASE_URL, temperature=0.2)
+answer_chain = prompt | llm | StrOutputParser()
 
 
 def format_docs(docs) -> str:
     return "\n\n---\n\n".join(d.page_content for d in docs)
 
 
-def build_chain():
-    retriever = get_retriever()
-    return (
-        {
-            "context": itemgetter("question") | retriever | format_docs,
-            "question": itemgetter("question"),
-            "user_memory": itemgetter("user_memory"),
-        }
-        | prompt
-        | llm
-        | StrOutputParser()
-    )
+def retrieve_context(question: str, k: int = 6):
+    """
+    Any recognized platform mention is treated as at least a
+    single-platform-scoped question -- and the curated comparisons
+    reference is ALWAYS searched alongside the named platform(s),
+    since it's exactly the source built to answer "how does X
+    compare to Y" and "what's the headline spec" questions. This
+    used to only happen when NO platform was detected at all, which
+    excluded it from the exact questions it exists for.
+    """
+    platforms = detect_platforms(question)
 
+    if not platforms:
+        retriever = get_retriever(k=k)
+        return retriever.invoke(question), platforms
 
-_chain = None
-
-
-def get_chain():
-    global _chain
-    if _chain is None:
-        _chain = build_chain()
-    return _chain
+    search_targets = platforms + ["comparisons"]
+    per_target_k = max(2, k // len(search_targets))
+    docs = []
+    for target in search_targets:
+        retriever = get_retriever(k=per_target_k, platform_filter=[target])
+        docs.extend(retriever.invoke(question))
+    return docs, platforms
 
 
 def ask(question: str, user_id: str) -> str:
-    """
-    The single function the API layer (Module 5) calls. This is the
-    "public interface" of the whole RAG + memory system -- callers
-    don't need to know ChromaDB, Mem0, or Ollama exist underneath.
-    """
+    docs, platforms = retrieve_context(question)
+    context = format_docs(docs)
     user_memory = get_user_memories(user_id, question)
-    chain = get_chain()
-    answer = chain.invoke({"question": question, "user_memory": user_memory})
+
+    answer = answer_chain.invoke({
+        "context": context,
+        "question": question,
+        "user_memory": user_memory,
+    })
+
     save_turn_to_memory(user_id, question, answer)
     return answer
