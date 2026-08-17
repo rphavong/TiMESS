@@ -1,4 +1,4 @@
-# LangChain Expression Language - Pull memory into the chain  
+# LangChain Expression Language - Pull memory into the chain   
 import os
 
 from langchain_core.output_parsers import StrOutputParser
